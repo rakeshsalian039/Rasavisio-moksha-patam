@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moksha Patam — मोक्षपटम्</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@400;700;900&family=Yatra+One&family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@700;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0c0a07;font-family:'Cinzel',serif;color:#e8c850;min-height:100vh;overflow-x:hidden}
+  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+  @keyframes reveal{0%{opacity:0;transform:translateY(20px)}100%{opacity:1;transform:translateY(0)}}
+  @keyframes slideUp{0%{opacity:0;transform:translateY(30px)}100%{opacity:1;transform:translateY(0)}}
+  @keyframes mp{0%,100%{text-shadow:0 0 15px rgba(240,200,80,.3)}50%{text-shadow:0 0 40px rgba(240,200,80,.7)}}
+  @keyframes narGlow{0%,100%{box-shadow:0 0 8px rgba(240,200,80,.15)}50%{box-shadow:0 0 20px rgba(240,200,80,.4)}}
+  .gb{background:transparent;border:1px solid rgba(200,160,60,.3);color:#e8c850;padding:12px 32px;font-size:14px;font-family:'Cinzel',serif;cursor:pointer;transition:all .4s;letter-spacing:3px;border-radius:2px}
+  .gb:hover{background:rgba(200,160,60,.08);border-color:rgba(240,200,80,.6)}
+  .gp{background:linear-gradient(180deg,rgba(200,160,60,.2),rgba(200,160,60,.08));border-color:rgba(200,160,60,.5)}
+  .gp:hover{box-shadow:0 0 25px rgba(240,200,80,.12)}
+  .page{min-height:100vh;display:flex;flex-direction:column;align-items:center;position:relative;overflow:hidden;background:linear-gradient(170deg,#0c0a07,#1a1408,#0c0a07)}
+  .vignette{position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 35%,rgba(8,6,3,.8) 100%);pointer-events:none}
+  .hidden{display:none !important}
+  .speaking{animation:narGlow 1.5s ease infinite}
+  .badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:9px;letter-spacing:2px}
+  .b-ok{background:rgba(80,200,120,.15);border:1px solid rgba(80,200,120,.3);color:#50c878}
+  .b-warn{background:rgba(200,160,60,.1);border:1px solid rgba(200,160,60,.3);color:#c0a050}
+  .b-load{background:rgba(100,100,200,.1);border:1px solid rgba(100,100,200,.3);color:#8080c0}
+  .lang-btn{padding:16px 28px;border:1px solid rgba(200,160,60,.25);background:transparent;color:#e8c850;font-family:'Cinzel',serif;font-size:14px;cursor:pointer;border-radius:4px;transition:all .4s;text-align:center;min-width:140px}
+  .lang-btn:hover{background:rgba(200,160,60,.08);border-color:rgba(240,200,80,.6)}
+  .lang-btn.selected{background:rgba(200,160,60,.15);border-color:rgba(240,200,80,.7);box-shadow:0 0 20px rgba(240,200,80,.1)}
+  #debug{position:fixed;bottom:8px;left:8px;right:8px;background:rgba(0,0,0,.85);border:1px solid rgba(200,160,60,.15);padding:8px;font-size:9px;color:#807060;border-radius:4px;max-height:100px;overflow-y:auto;z-index:999;font-family:monospace;line-height:1.5;display:none}
+  #debug.show{display:block}
+  #debug .ok{color:#50c878}#debug .err{color:#e06050}#debug .w{color:#d0a040}
+  .toggle-debug{position:fixed;bottom:8px;right:8px;background:rgba(0,0,0,.5);border:1px solid rgba(200,160,60,.1);color:#605040;padding:2px 8px;font-size:9px;cursor:pointer;z-index:1000;border-radius:3px;font-family:monospace}
+</style>
+</head>
+<body>
+
+<button class="toggle-debug" onclick="document.getElementById('debug').classList.toggle('show')">debug</button>
+<div id="debug"></div>
+
+<script>
+window.__puterLoaded=false;window.__puterError=false;
+const D={el:null,init(){this.el=document.getElementById('debug')},log(m,t=''){if(!this.el)return;const l=document.createElement('div');l.className=t;l.textContent=`${new Date().toLocaleTimeString()} ${m}`;this.el.appendChild(l);this.el.scrollTop=9999},ok(m){this.log(m,'ok')},err(m){this.log(m,'err')},w(m){this.log(m,'w')}};
+</script>
+<script src="https://js.puter.com/v2/" onload="window.__puterLoaded=true" onerror="window.__puterError=true"></script>
+
+<script>
+/* ═══ VOICE ENGINE v4 ═══ */
+let chosenLang = 'en'; // 'en' or 'hi'
+let audioUnlocked = false; // tracks if user has clicked (autoplay policy)
+
+const Voice = {
+  audio: null, muted: false, engine: 'detecting', ready: false,
+
+  init() {
+    D.init(); D.log('Voice init...');
+    if (window.__puterLoaded && typeof puter !== 'undefined') {
+      this.engine = 'puter'; this.ready = true;
+      D.ok('Puter.js loaded! AI voice available.');
+    } else if ('speechSynthesis' in window) {
+      this.engine = 'browser'; this.ready = true;
+      D.w('Puter.js unavailable. Browser speech fallback.');
+    } else { this.engine = 'none'; D.err('No speech available.'); }
+    this.updateBadge();
+  },
+
+  updateBadge() {
+    document.querySelectorAll('.voice-status').forEach(el => {
+      if (this.engine === 'puter') { el.className = 'badge voice-status b-ok'; el.textContent = '✓ AI VOICE'; }
+      else if (this.engine === 'browser') { el.className = 'badge voice-status b-warn'; el.textContent = '⚠ BROWSER VOICE'; }
+      else { el.className = 'badge voice-status b-load'; el.textContent = '...'; }
+    });
+  },
+
+  async speak(text) {
+    if (this.muted || !this.ready || !text) return;
+    this.stop();
+    document.querySelectorAll('.narrate-btn').forEach(b => b.classList.add('speaking'));
+    D.log(`Speaking [${chosenLang}]: "${text.substring(0, 50)}..."`);
+    if (this.engine === 'puter') { await this._puter(text); }
+    else { this._browser(text); }
+  },
+
+  async _puter(text) {
+    const isHindi = chosenLang === 'hi';
+
+    // Strategy 1: OpenAI (best quality, supports Hindi natively)
+    try {
+      const voiceName = isHindi ? "nova" : "onyx"; // nova = warm female, onyx = deep dramatic male
+      const instructions = isHindi
+        ? "You are an ancient Indian storyteller narrating in Hindi. Speak slowly, mysteriously, with deep emotion. Pause dramatically between sentences. Your voice should feel like a grandmother telling sacred tales by firelight."
+        : "You are an ancient sage narrating an epic tale in English. Speak slowly and dramatically with gravitas. Pause between sentences for effect. Sound mysterious and wise, like a voice from thousands of years ago.";
+      
+      D.log(`Trying OpenAI [${voiceName}]...`);
+      const audio = await puter.ai.txt2speech(text, {
+        provider: "openai",
+        voice: voiceName,
+        model: "gpt-4o-mini-tts",
+        instructions: instructions
+      });
+      this.audio = audio;
+      await audio.play();
+      audio.onended = () => this._end();
+      D.ok(`OpenAI [${voiceName}] playing!`);
+      return;
+    } catch(e) { D.w('OpenAI failed: ' + e.message); }
+
+    // Strategy 2: ElevenLabs (great quality)
+    try {
+      D.log('Trying ElevenLabs...');
+      const audio = await puter.ai.txt2speech(text, {
+        provider: "elevenlabs",
+        voice: "21m00Tcm4TlvDq8ikWAM", // Rachel
+        model: "eleven_multilingual_v2"
+      });
+      this.audio = audio;
+      await audio.play();
+      audio.onended = () => this._end();
+      D.ok('ElevenLabs playing!');
+      return;
+    } catch(e) { D.w('ElevenLabs failed: ' + e.message); }
+
+    // Strategy 3: AWS Polly
+    try {
+      const voice = isHindi ? "Kajal" : "Joanna";
+      const lang = isHindi ? "hi-IN" : "en-US";
+      D.log(`Trying Polly [${voice}]...`);
+      const audio = await puter.ai.txt2speech(text, {
+        voice: voice, engine: "neural", language: lang
+      });
+      this.audio = audio;
+      await audio.play();
+      audio.onended = () => this._end();
+      D.ok(`Polly [${voice}] playing!`);
+      return;
+    } catch(e) { D.w('Polly neural failed: ' + e.message); }
+
+    // Strategy 4: Simplest Puter call
+    try {
+      D.log('Trying basic Puter...');
+      const audio = await puter.ai.txt2speech(text);
+      this.audio = audio;
+      await audio.play();
+      audio.onended = () => this._end();
+      D.ok('Basic Puter playing!');
+      return;
+    } catch(e) { D.err('All Puter attempts failed: ' + e.message); }
+
+    D.w('Falling back to browser speech...');
+    this._browser(text);
+  },
+
+  _browser(text) {
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.72; u.pitch = 0.85; u.volume = 0.85;
+      const voices = speechSynthesis.getVoices();
+      const isHindi = chosenLang === 'hi';
+      const v = isHindi
+        ? (voices.find(v=>v.lang==='hi-IN') || voices.find(v=>v.lang.startsWith('hi')) || voices.find(v=>v.lang.startsWith('en'))||voices[0])
+        : (voices.find(v=>v.lang==='en-IN') || voices.find(v=>v.lang==='en-GB') || voices.find(v=>v.lang.startsWith('en'))||voices[0]);
+      if(v){u.voice=v; D.log('Browser voice: '+v.name)}
+      u.onend=()=>this._end();
+      speechSynthesis.speak(u);
+    } catch(e) { D.err('Browser speech failed'); this._end(); }
+  },
+
+  _end() { document.querySelectorAll('.narrate-btn').forEach(b=>b.classList.remove('speaking')); },
+  stop() {
+    if(this.audio){try{this.audio.pause();this.audio.currentTime=0}catch(e){};this.audio=null}
+    try{speechSynthesis.cancel()}catch(e){}; this._end();
+  },
+  toggleMute() {
+    this.muted=!this.muted;
+    if(this.muted){this.stop();Ambient.stop()}
+    document.querySelectorAll('.mute-btn').forEach(b=>b.textContent=this.muted?'🔇':'🔊');
+  }
+};
+
+const Ambient={ctx:null,nodes:[],on:false,
+  start(){if(this.on||Voice.muted)return;try{const c=new(window.AudioContext||window.webkitAudioContext)();this.ctx=c;[130.81,196,261.63].forEach(f=>{const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,c.currentTime);g.gain.linearRampToValueAtTime(.015,c.currentTime+2);o.connect(g);g.connect(c.destination);o.start();this.nodes.push({o,g})});this.on=true}catch(e){}},
+  stop(){if(!this.on)return;this.nodes.forEach(({o,g})=>{try{g.gain.linearRampToValueAtTime(0,this.ctx.currentTime+.5);o.stop(this.ctx.currentTime+.6)}catch(e){}});this.nodes=[];this.on=false;setTimeout(()=>{try{this.ctx?.close()}catch(e){};this.ctx=null},800)}
+};
+
+/* ═══ BILINGUAL STORY DATA ═══ */
+const STORIES = [
+  {title:"A Forgotten Secret", icon:"🕉",
+  en:"Before the Mahabharata was written down. Before the temples were carved in stone. Before even the oldest Vedas were chanted aloud. There existed, a game. Not a game of entertainment. A game, of the soul. Created by unknown sages in an age so ancient, that even the gods have forgotten its origin. They called it, Moksha Patam. The Board of Liberation. It was said, that whoever truly understood this game, would understand the secret of life, death, and everything beyond. For thousands of years, it was played in royal courts and forest ashrams. Passed from guru to disciple, in whispered secrecy. Then one day, foreigners came. They saw the board. They took it. They stripped away every sacred name. Every Sanskrit verse. They renamed it, Snakes and Ladders. The soul of the game, was erased. Until now.",
+  hi:"महाभारत लिखे जाने से पहले। मंदिरों को पत्थर में तराशे जाने से पहले। सबसे पुराने वेदों के उच्चारण से भी पहले। एक खेल था। मनोरंजन का खेल नहीं। आत्मा का खेल। अज्ञात ऋषियों द्वारा बनाया गया, इतने प्राचीन युग में, कि देवताओं को भी इसकी उत्पत्ति याद नहीं। उन्होंने इसे मोक्षपटम कहा। मुक्ति का मार्ग। कहा जाता था कि जो इस खेल को सच में समझ ले, वो जीवन, मृत्यु, और उसके पार के रहस्य को समझ जाएगा। हजारों सालों तक, यह राजदरबारों और वन के आश्रमों में खेला गया। गुरु से शिष्य तक, फुसफुसाहट में। फिर एक दिन, विदेशी आए। उन्होंने इस पट को देखा। उठा लिया। हर पवित्र नाम, हर संस्कृत श्लोक मिटा दिया। इसका नाम रख दिया, सांप सीढ़ी। खेल की आत्मा, मिट गई। आज तक।",
+  body:"Before the Mahabharata was written down... before the temples were carved in stone... before even the oldest Vedas were chanted aloud...\n\nThere existed a game.\n\nNot a game of entertainment. A game of the soul. Created by unknown sages in an age so ancient that even the gods have forgotten its origin.\n\nThey called it मोक्षपटम् — Moksha Patam. The Board of Liberation.\n\nIt was said that whoever truly understood this game would understand the secret of life, death, and everything beyond.\n\nFor thousands of years, it was played in royal courts and forest ashrams, passed from guru to disciple in whispered secrecy.\n\nThen one day, foreigners came. They stripped away every sacred name. They renamed it 'Snakes and Ladders.'\n\nThe soul of the game was erased. Until now."},
+
+  {title:"The Sacred Board", icon:"📜",
+  en:"The board is not a board. It is a map, of the universe. One hundred squares. Three realms. One destination. Squares 1 to 33, Bhuloka, the Earthly Realm. Here the chaos of mortal life rages. Snakes and ladders everywhere. Fortune changes with every step. This is where most souls are trapped. Endlessly cycling. Squares 34 to 66, Antarloka, the Inner Realm. The noise fades. The serpents here don't bite your body. They poison your mind. Squares 67 to 99, Svargaloka, the Celestial Realm. So close to freedom you can taste it. But the serpents here are the most deadly. One fall can destroy lifetimes of progress. And at Square 100, Moksha. Liberation. The end of suffering. But reaching it, is only half the battle.",
+  hi:"यह पट, सिर्फ एक पट नहीं है। यह ब्रह्मांड का नक्शा है। सौ खाने। तीन लोक। एक मंज़िल। खाना 1 से 33, भूलोक, पृथ्वी लोक। यहां नश्वर जीवन का तूफ़ान है। सांप और सीढ़ियां हर जगह। किस्मत हर कदम पर बदलती है। ज़्यादातर आत्माएं यहीं फंसी रहती हैं। अंतहीन चक्र में। खाना 34 से 66, अंतर्लोक। शोर थमता है। यहां के सांप शरीर नहीं काटते। मन में ज़हर भरते हैं। खाना 67 से 99, स्वर्गलोक। मुक्ति इतनी करीब कि छू सकते हो। लेकिन यहां के सांप सबसे घातक हैं। एक गिरावट, जन्मों की तपस्या मिटा सकती है। और खाना 100 पर, मोक्ष। मुक्ति। दुख का अंत। लेकिन वहां पहुंचना, आधी लड़ाई है।",
+  body:"The board is not a board. It is a map of the universe.\n\n100 squares. Three realms. One destination.\n\nभूलोक Bhuloka (1-33) — The Earthly Realm. Chaos. Most souls trapped here.\n\nअन्तर्लोक Antarloka (34-66) — The Inner Realm. Serpents poison the mind.\n\nस्वर्गलोक Svargaloka (67-99) — The Celestial Realm. One fall destroys lifetimes.\n\nSquare 100 — मोक्ष Moksha. Liberation.\n\nBut reaching it... is only half the battle."},
+
+  {title:"The Serpents Within", icon:"𓆙",
+  en:"They are not just snakes. They are the ten, darkest forces, inside every human soul. The ancient sages gave each one a name. Learn them. Fear them. Krodh, Wrath. The fire that consumed Duryodhana. Lobh, Greed. The madness that made Shakuni gamble a kingdom. Moh, Delusion. The blindness of Dhritarashtra. Matsarya, Envy. Kaam, Desire. Mad, Pride. The arrogance that burned Lanka. Bhay, Fear. Dvesh, Hatred. Aalasya, Sloth. And the deadliest of all. Ahankaar. Ego. When a serpent catches you, it drags you down, and stains your soul with Paap, sin karma. The higher you climb, the further you fall. There is only one protection. The shield of Shukra. And it can only save you, once.",
+  hi:"ये सिर्फ सांप नहीं हैं। ये हर इंसान की आत्मा के अंदर की दस सबसे अंधेरी शक्तियां हैं। प्राचीन ऋषियों ने हर एक को नाम दिया। इन्हें जानो। इनसे डरो। क्रोध। वो आग जिसने दुर्योधन को जलाया। लोभ। वो पागलपन जिसने शकुनि से राज्य का जुआ खिलवाया। मोह। धृतराष्ट्र का अंधापन। मात्सर्य, ईर्ष्या। काम, वासना। मद, घमंड। वो अहंकार जिसने लंका जलाई। भय। द्वेष, नफरत। आलस्य। और सबसे घातक। अहंकार। जब सांप तुम्हें पकड़ता है, तो नीचे खींचता है, और तुम्हारी आत्मा पर पाप का दाग लगाता है। जितना ऊपर चढ़ो, उतना गहरा गिरो। एक ही सुरक्षा है। शुक्र का कवच। और वो सिर्फ एक बार बचा सकता है।",
+  body:"They are not just snakes. They are the ten darkest forces inside every human soul.\n\n𓆙 क्रोध Krodh — Wrath\n𓆙 लोभ Lobh — Greed\n𓆙 मोह Moh — Delusion\n𓆙 मात्सर्य Matsarya — Envy\n𓆙 काम Kaam — Desire\n𓆙 मद Mad — Pride\n𓆙 भय Bhay — Fear\n𓆙 द्वेष Dvesh — Hatred\n𓆙 आलस्य Aalasya — Sloth\n𓆙 अहंकार Ahankaar — Ego\n\nWhen bitten → fall + gain पाप Papa.\nOnly शुक्र Shukra shields you — once."},
+
+  {title:"The Path to Moksha", icon:"ॐ",
+  en:"There are only two ways, to escape the cycle of Samsara. The First Path. Reach Square 100 with an exact roll. But, your Punya, your virtue, must equal or exceed your Paap, your sin. If you arrive at Moksha with a heavy soul, you will be cast back. To Square 67. To suffer. To purify. To try again. The Second Path. Far rarer. Far more beautiful. If at any moment, a seeker accumulates 15 Punya, they transcend the board entirely. Instant Moksha. This represents the ancient truth, that a pure soul can break free at any moment. Most seekers never achieve either. Will you? Dharma awaits. The dice are ready. The serpents, are watching. Step onto the board.",
+  hi:"संसार के चक्र से बचने के सिर्फ दो रास्ते हैं। पहला रास्ता। खाना 100 पर सटीक पासे से पहुंचो। लेकिन, तुम्हारा पुण्य, तुम्हारे पाप से ज़्यादा या बराबर होना चाहिए। अगर भारी आत्मा लेकर मोक्ष पहुंचे, तो वापस भेज दिए जाओगे। खाना 67 पर। कष्ट भोगने। शुद्ध होने। फिर से कोशिश करने। दूसरा रास्ता। बहुत दुर्लभ। बहुत सुंदर। अगर किसी भी पल, कोई साधक 15 पुण्य इकट्ठा कर ले, तो वो पट से ऊपर उठ जाता है। तुरंत मोक्ष। यह प्राचीन सत्य है, कि शुद्ध आत्मा किसी भी क्षण मुक्त हो सकती है। ज़्यादातर साधक कभी नहीं पहुंचते। क्या तुम पहुंचोगे? धर्म इंतज़ार कर रहा है। पासे तैयार हैं। सांप देख रहे हैं। पट पर कदम रखो।",
+  body:"Two paths to liberation:\n\nFirst — reach Square 100 with exact roll.\nपुण्य Punya must ≥ पाप Papa. Otherwise → Square 67.\n\nSecond — accumulate 15 Punya = instant Moksha.\n\nMost seekers never achieve either.\n\nWill you?\n\nDharma awaits. The dice are ready.\nThe serpents are watching.\n\nStep onto the board."},
+];
+
+/* ═══ CHARACTER VOICEOVERS ═══ */
+const CHAR_VOICE = {
+  warrior: {
+    en: "You are the Kshatriya Warrior. You once commanded armies at Kurukshetra, fighting alongside the great Bhishma himself. Haunted by the rivers of blood you spilled, you now seek Moksha. Your courage is your strength. But brute force alone, has never conquered the soul.",
+    hi: "तुम क्षत्रिय योद्धा हो। तुमने कुरुक्षेत्र में भीष्म के साथ सेनाओं का नेतृत्व किया। बहाए गए खून की नदियां अब भी तुम्हें सताती हैं। अब तुम मोक्ष की खोज में हो। साहस तुम्हारी ताकत है। लेकिन क्रूर बल से, कभी आत्मा नहीं जीती गई।"
+  },
+  sage: {
+    en: "You are the Rishi Sage. For twelve years you meditated in the forests of Naimisharanya, mastering the Vedas. And yet, enlightenment eludes you. True knowledge lives not in scripture, but in the journey itself.",
+    hi: "तुम ऋषि हो। बारह वर्षों तक नैमिषारण्य के जंगलों में ध्यान किया, वेदों में महारत हासिल की। फिर भी, ज्ञान तुमसे दूर है। सच्चा ज्ञान शास्त्रों में नहीं, यात्रा में बसता है।"
+  },
+  healer: {
+    en: "You are the Vaidya Healer. Trained in the traditions of Lord Dhanvantari. You healed kings and beggars. But you could not save your own guru. Now you seek the one cure no medicine provides. Liberation from death itself.",
+    hi: "तुम वैद्य हो। भगवान धन्वंतरि की परंपरा में प्रशिक्षित। तुमने राजाओं और भिखारियों को ठीक किया। लेकिन अपने गुरु को नहीं बचा पाए। अब तुम वो इलाज खोज रहे हो जो कोई दवाई नहीं दे सकती। मृत्यु से मुक्ति।"
+  },
+  dancer: {
+    en: "You are the Devadasi Dancer. In the temples of Ujjain, you performed the cosmic Tandava before kings. Now you dance not for men, but for Moksha. Each step is a prayer. Each mudra, a mantra.",
+    hi: "तुम देवदासी नर्तकी हो। उज्जैन के मंदिरों में, तुमने राजाओं के सामने तांडव किया। अब तुम पुरुषों के लिए नहीं, मोक्ष के लिए नाचती हो। हर कदम एक प्रार्थना। हर मुद्रा, एक मंत्र।"
+  },
+  merchant: {
+    en: "You are the Vanik Merchant. You traded silk from Pataliputra to Taxila. A shipwreck took everything. Now you trade karma, not coins. The only treasure that cannot sink.",
+    hi: "तुम वणिक व्यापारी हो। पाटलिपुत्र से तक्षशिला तक रेशम का व्यापार करते थे। एक जहाज़ डूबने ने सब छीन लिया। अब तुम कर्म का व्यापार करते हो, सिक्कों का नहीं। एकमात्र खज़ाना जो डूब नहीं सकता।"
+  },
+  ascetic: {
+    en: "You are the Sannyasi Ascetic. At twenty, you renounced a kingdom. For decades you wandered forests. Others call you mad. But in your deepest meditations, you have seen Moksha. A golden light, calling you forward.",
+    hi: "तुम संन्यासी हो। बीस साल की उम्र में, एक राज्य त्याग दिया। दशकों तक जंगलों में भटके। लोग तुम्हें पागल कहते हैं। लेकिन गहन ध्यान में, तुमने मोक्ष देखा है। एक सुनहरी रोशनी, जो आगे बुला रही है।"
+  }
+};
+
+let page = 0;
+
+function show(id) {
+  document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function selectLang(lang) {
+  chosenLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('lang-' + lang).classList.add('selected');
+  document.getElementById('begin-btn').style.opacity = '1';
+  document.getElementById('begin-btn').disabled = false;
+  D.log('Language selected: ' + lang);
+}
+
+function begin() {
+  if (!chosenLang) return;
+  audioUnlocked = true; // User clicked — autoplay now allowed
+  Ambient.start();
+  page = 0;
+  renderPage();
+  show('screen-story');
+  // Auto-narrate after short delay (user click unlocked audio)
+  setTimeout(() => Voice.speak(STORIES[0][chosenLang]), 500);
+}
+
+function renderPage() {
+  const s = STORIES[page];
+  document.getElementById('s-icon').textContent = s.icon;
+  document.getElementById('s-title').textContent = s.title;
+  document.getElementById('s-count').textContent = `${page+1} / ${STORIES.length}`;
+  const bd = document.getElementById('s-body');
+  bd.innerHTML = '';
+  s.body.split('\n\n').forEach((p, i) => {
+    const el = document.createElement('p');
+    el.style.cssText = `font-size:clamp(13px,1.8vw,16px);line-height:2.2;color:#d0c090;margin:${i?'18px':'0'} 0 0;white-space:pre-line`;
+    el.textContent = p;
+    bd.appendChild(el);
+  });
+  document.getElementById('s-back').style.visibility = page > 0 ? 'visible' : 'hidden';
+  const nxt = document.getElementById('s-next');
+  nxt.textContent = page >= STORIES.length - 1 ? 'Enter the Game →' : 'Next →';
+  const c = document.getElementById('s-wrap');
+  c.style.animation = 'none';
+  requestAnimationFrame(() => c.style.animation = 'slideUp .8s ease');
+}
+
+function nextPage() {
+  Voice.stop();
+  if (page < STORIES.length - 1) {
+    page++;
+    renderPage();
+    // Auto-narrate (audio already unlocked from BEGIN click)
+    setTimeout(() => Voice.speak(STORIES[page][chosenLang]), 400);
+  } else {
+    show('screen-done');
+  }
+}
+
+function backPage() {
+  Voice.stop();
+  if (page > 0) {
+    page--;
+    renderPage();
+    setTimeout(() => Voice.speak(STORIES[page][chosenLang]), 400);
+  }
+}
+
+function renarrate() {
+  Voice.speak(STORIES[page][chosenLang]);
+}
+
+// Speak character lore
+function speakChar(charId) {
+  const lore = CHAR_VOICE[charId];
+  if (lore) Voice.speak(lore[chosenLang]);
+}
+
+window.addEventListener('load', () => {
+  setTimeout(() => Voice.init(), 800);
+  // Pre-load browser voices
+  try { speechSynthesis.getVoices(); } catch(e) {}
+});
+</script>
+
+<!-- ═══ TITLE + LANGUAGE SELECT ═══ -->
+<div id="screen-title" class="page" style="justify-content:center;padding:20px">
+  <div class="vignette"></div>
+  <div style="font-size:52px;margin-bottom:12px;animation:pulse 3s ease infinite">🔱</div>
+  <h1 style="font-size:clamp(38px,9vw,72px);font-family:'Yatra One',serif;margin:0 0 6px;letter-spacing:4px;text-shadow:0 2px 10px rgba(0,0,0,.7);color:#f0d050;animation:reveal 1.5s ease">मोक्षपटम्</h1>
+  <div style="font-size:clamp(14px,3vw,24px);letter-spacing:12px;font-family:'Cinzel Decorative',serif;font-weight:700;opacity:.55;animation:reveal 1.5s ease .2s both">MOKSHA PATAM</div>
+  <div style="font-size:clamp(8px,1.3vw,11px);letter-spacing:7px;opacity:.25;margin-top:4px">THE ANCIENT GAME OF KARMA</div>
+  <div style="width:60px;height:1px;background:linear-gradient(90deg,transparent,rgba(240,200,80,.4),transparent);margin:22px 0"></div>
+
+  <!-- Language Selection -->
+  <div style="margin-bottom:24px;text-align:center;animation:reveal 1.5s ease .3s both">
+    <div style="font-size:11px;opacity:.4;letter-spacing:4px;margin-bottom:12px">CHOOSE NARRATION VOICE</div>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+      <button id="lang-en" class="lang-btn" onclick="selectLang('en')">
+        <div style="font-size:20px;margin-bottom:4px">🇬🇧</div>
+        <div style="font-size:13px;letter-spacing:2px">ENGLISH</div>
+        <div style="font-size:9px;opacity:.4;margin-top:4px">Deep, dramatic narrator</div>
+      </button>
+      <button id="lang-hi" class="lang-btn" onclick="selectLang('hi')">
+        <div style="font-size:20px;margin-bottom:4px">🇮🇳</div>
+        <div style="font-size:13px;letter-spacing:2px;font-family:'Noto Serif Devanagari',serif">हिन्दी</div>
+        <div style="font-size:9px;opacity:.4;margin-top:4px">रहस्यमय कथावाचक</div>
+      </button>
+    </div>
+  </div>
+
+  <button id="begin-btn" class="gb gp" onclick="begin()" disabled style="opacity:.4;animation:reveal 1.5s ease .5s both;font-size:16px;padding:16px 52px;letter-spacing:5px">BEGIN</button>
+  <div class="badge voice-status b-load" style="margin-top:14px">... DETECTING VOICE</div>
+  <div style="margin-top:8px;opacity:.15;font-size:9px">Screen text is always English · Voice follows your choice</div>
+</div>
+
+<!-- ═══ STORY ═══ -->
+<div id="screen-story" class="page hidden" style="padding:clamp(16px,4vw,40px);overflow-y:auto">
+  <div style="max-width:640px;width:100%" id="s-wrap">
+    <div style="text-align:center;margin-bottom:24px">
+      <div id="s-icon" style="font-size:44px;margin-bottom:8px;filter:drop-shadow(0 0 10px rgba(240,200,80,.2))"></div>
+      <h2 id="s-title" style="font-size:clamp(22px,5vw,36px);font-family:'Yatra One',serif;color:#f0d050;margin:0"></h2>
+      <div style="display:flex;justify-content:center;gap:10px;margin-top:10px;align-items:center;flex-wrap:wrap">
+        <span id="s-count" style="font-size:10px;opacity:.3;letter-spacing:5px"></span>
+        <button class="narrate-btn" onclick="renarrate()" style="background:transparent;border:1px solid rgba(200,160,60,.3);color:#f0d050;padding:5px 16px;font-size:11px;cursor:pointer;border-radius:3px;font-family:'Cinzel',serif;letter-spacing:2px">🔊 Replay</button>
+        <button class="mute-btn" onclick="Voice.toggleMute()" style="background:transparent;border:1px solid rgba(200,160,60,.25);color:#c0b080;padding:4px 10px;font-size:12px;cursor:pointer;border-radius:3px">🔊</button>
+      </div>
+      <div class="badge voice-status b-load" style="margin-top:6px">...</div>
+    </div>
+    <div id="s-body" style="background:rgba(20,16,10,.6);border:1px solid rgba(200,160,60,.15);padding:clamp(18px,3vw,30px);border-radius:4px;margin-bottom:20px"></div>
+    <div style="display:flex;justify-content:space-between;gap:12px">
+      <button id="s-back" class="gb" onclick="backPage()">← Back</button>
+      <button id="s-next" class="gb gp" onclick="nextPage()">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DONE ═══ -->
+<div id="screen-done" class="page hidden" style="justify-content:center;padding:40px;text-align:center">
+  <div style="max-width:600px;animation:slideUp .8s ease">
+    <div style="font-size:48px;margin-bottom:16px;animation:mp 3s ease infinite">ॐ</div>
+    <h2 style="font-size:clamp(22px,5vw,36px);font-family:'Yatra One',serif;color:#f0d050;margin:0 0 16px">The Story is Told</h2>
+    <p style="font-size:13px;color:#c0b080;line-height:1.8;margin-bottom:20px">
+      Voice narration is ready for integration into the full game.
+      Copy the Voice engine code into your React app.
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="gb gp" onclick="page=0;renderPage();show('screen-story');setTimeout(()=>Voice.speak(STORIES[0][chosenLang]),400)">Replay Story</button>
+      <button class="gb" onclick="show('screen-title')">Title</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
